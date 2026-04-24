@@ -194,7 +194,7 @@ datalogger2/
 ├── deploy/
 │   └── datalogger_v2.service
 ├── config.yaml          # config local (no versionar)
-├── config.example.yaml  # plantilla
+├── config.dev.yaml      # config para desarrollo local (simulador)
 └── pyproject.toml
 ```
 
