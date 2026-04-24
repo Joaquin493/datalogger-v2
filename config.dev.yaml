@@ -1,0 +1,29 @@
+# Config de desarrollo local. Apunta al simulador Modbus (scripts/modbus_sim.py).
+# Uso:   python -m datalogger_v2 -c config.dev.yaml
+
+modbus:
+  host: 127.0.0.1
+  port: 5020                  # puerto del simulador local (evita pedir admin del 502)
+  unit_id: 1
+  timeout_s: 2.0
+  min_cycle_ms: 20
+  reconnect_backoff_s: [1, 2, 5]
+  addressing_scheme: "sequential"
+
+catalog:
+  xlsx_path: "Programa_TTA_IRSA_convertido v3.xlsx"
+  sheet: "Sheet2"
+
+storage:
+  db_path: "data/datalogger_v2_dev.db"
+  max_events: 1000000
+
+web:
+  host: 127.0.0.1
+  port: 8080
+  session_secret: "d064fec00b074244f328dd61039a6d1647b93117941ed21c640e4e89cee363bb"
+  session_max_age_s: 28800
+
+initial_users:
+  - username: admin
+    password: admin

@@ -54,27 +54,32 @@ Diseñado para correr 24/7 en un Siemens SIMATIC IOT2050 (ARM / Linux) o Raspber
 
 La fuente de verdad del mapeo entre direcciones Schneider (`%I0.3`, `%Q2.5`) y offsets Modbus es un **xlsx** (`Programa_TTA_IRSA_convertido v3.xlsx`, hoja `Sheet2`) con las 104 señales, símbolos y descripciones.
 
+## Dos configs: dev y prod
+
+El repo versiona dos archivos de configuración:
+
+- **`config.yaml`** → **producción**. Apunta al M221 real (`10.10.145.244:502`). Es el que usa systemd por defecto.
+- **`config.dev.yaml`** → **desarrollo local**. Apunta al simulador (`127.0.0.1:5020`).
+
+Cuando cambies la IP del PLC o lo que sea en prod, editás `config.yaml`, hacés commit y en el servidor corrés `deploy/update.sh`.
+
 ## Quickstart local (con simulador, sin PLC)
 
-```bash
+```powershell
 # 1. venv + instalación
 python -m venv .venv
-source .venv/bin/activate          # Linux/Mac
-# .venv\Scripts\activate             Windows PowerShell
+.venv\Scripts\activate               # Windows PowerShell
+# source .venv/bin/activate          Linux/Mac
 pip install -e .
 
-# 2. config (para dev: apunta al simulador en 127.0.0.1:5020)
-cp config.example.yaml config.yaml
-# editar web.session_secret con: python -c "import secrets; print(secrets.token_hex(32))"
-
-# 3. en terminal A — simulador Modbus que imita al M221
+# 2. Terminal A — simulador Modbus que imita al M221
 python scripts/modbus_sim.py
 
-# 4. en terminal B — Datalogger V2
-python -m datalogger_v2 -c config.yaml
+# 3. Terminal B — Datalogger V2 apuntando al sim
+python -m datalogger_v2 -c config.dev.yaml
 ```
 
-Abrí `http://127.0.0.1:8080` → login `admin` / `admin` → deberías ver el panel de señales moviéndose.
+Abrí `http://127.0.0.1:8080` → login `admin` / `admin` → deberías ver el panel moviéndose.
 
 ## Configuración (`config.yaml`)
 
@@ -114,36 +119,39 @@ El secret también se puede pasar por entorno (recomendado en prod):
 
 ## Deploy en Linux (IOT2050 / Raspberry Pi)
 
+### Primera instalación (una sola vez)
+
+Conectate al servidor por SSH y corré:
+
 ```bash
-# instalar en /opt/datalogger_v2 con venv
-sudo mkdir -p /opt/datalogger_v2
-sudo chown $USER: /opt/datalogger_v2
-git clone <repo> /opt/datalogger_v2    # o scp
+# clonar el repo en /opt
+sudo git clone https://github.com/Joaquin493/datalogger-v2.git /opt/datalogger_v2
 cd /opt/datalogger_v2
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -e .
 
-# config + secret externo
-cp config.example.yaml config.yaml
-python3 -c "import secrets; print(secrets.token_hex(32))" > .session_secret
-chmod 600 .session_secret
-
-# usuario del servicio
-sudo useradd --system --home /opt/datalogger_v2 --shell /bin/false datalogger_v2
-sudo chown -R datalogger_v2:datalogger_v2 /opt/datalogger_v2
-
-# systemd
-sudo cp deploy/datalogger_v2.service /etc/systemd/system/
-# editar y agregar: Environment=DATALOGGER_V2_SESSION_SECRET_FILE=/opt/datalogger_v2/.session_secret
-sudo systemctl daemon-reload
-sudo systemctl enable --now datalogger_v2
-sudo systemctl status datalogger_v2
+# setup automático (crea usuario, venv, instala deps, habilita systemd)
+sudo bash deploy/setup.sh
 ```
 
-Ver logs en vivo: `journalctl -u datalogger_v2 -f`
+Eso deja el servicio corriendo. Verificalo:
 
-Healthcheck externo: `curl -s http://localhost:8080/healthz` → 200 si hay ciclo OK <30 s.
+```bash
+sudo systemctl status datalogger_v2
+journalctl -u datalogger_v2 -f
+curl -s http://localhost:8080/healthz     # esperar 200
+```
+
+Web UI: `http://<ip-del-servidor>:8080` — login `admin` / `admin`.
+
+### Actualizar después de cambios en GitHub
+
+Cualquier commit que pushees al repo se despliega con:
+
+```bash
+cd /opt/datalogger_v2
+sudo bash deploy/update.sh
+```
+
+El script hace `git pull` + `pip install -e .` (por si cambiaron deps) + `systemctl restart datalogger_v2`.
 
 ## API
 

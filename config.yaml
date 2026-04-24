@@ -1,0 +1,32 @@
+# Configuración de producción — Datalogger V2
+# Apunta al Modicon M221 real. Este archivo es el que usa systemd por default.
+# Para desarrollo local con simulador, usar:   python -m datalogger_v2 -c config.dev.yaml
+
+modbus:
+  host: 10.10.145.244           # IP del Modicon M221
+  port: 502                     # puerto Modbus TCP estándar
+  unit_id: 1
+  timeout_s: 2.0
+  min_cycle_ms: 20              # piso entre ciclos del poller
+  reconnect_backoff_s: [1, 2, 5, 10, 30]
+  addressing_scheme: "sequential"
+
+catalog:
+  xlsx_path: "Programa_TTA_IRSA_convertido v3.xlsx"
+  sheet: "Sheet2"
+
+storage:
+  db_path: "data/datalogger_v2.db"
+  max_events: 1000000           # FIFO: al superar, se elimina el más viejo
+
+web:
+  host: 0.0.0.0                 # accesible desde cualquier IP de la LAN
+  port: 8080
+  session_secret: "262eb7448f4420e382ff6864288b677c1b1b9c7cd07530da2efc6c1914b45a6f"
+  session_max_age_s: 28800      # 8 h
+
+# Usuarios iniciales — sólo se aplican la primera vez que arranca (tabla users vacía).
+# Tras el primer login, cambiar la contraseña desde la UI.
+initial_users:
+  - username: admin
+    password: admin
