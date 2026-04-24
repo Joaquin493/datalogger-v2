@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Datalogger V2 — Acceso</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-body">
+  <form class="login-card" method="POST" action="/login" autocomplete="off">
+    <div class="login-logo">
+      <div class="logo-dot"></div>
+      DATALOGGER <span class="logo-ver">V2</span>
+    </div>
+    <div class="login-sub">Acceso restringido</div>
+    <label>Usuario
+      <input type="text" name="username" autofocus required>
+    </label>
+    <label>Contraseña
+      <input type="password" name="password" required>
+    </label>
+    <!--ERROR-->
+    <button type="submit">Ingresar</button>
+  </form>
+</body>
+</html>

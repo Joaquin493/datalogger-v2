@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python -m compileall -q src)",
+      "Bash(python -m pip install --quiet \"pymodbus>=3.6,<4.0\" \"fastapi>=0.110\" \"uvicorn[standard]>=0.27\" \"itsdangerous>=2.1\" \"python-multipart>=0.0.9\")",
+      "Bash(python -m pip install --quiet httpx)",
+      "Bash(pkill -f modbus_sim)",
+      "Bash(pkill -f datalogger2)",
+      "Bash(DATALOGGER2_SESSION_SECRET=testsecrettesttesttesttesttesttest datalogger2 -c config.yaml)",
+      "Bash(DATALOGGER2_SESSION_SECRET=testsecrettesttesttesttesttesttest python -m datalogger2 -c config.yaml)"
+    ]
+  }
+}

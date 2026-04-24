@@ -1,0 +1,28 @@
+[project]
+name = "datalogger-v2"
+version = "0.2.0"
+description = "Datalogger V2 — registrador de eventos digitales para PLC Modicon M221 vía Modbus TCP"
+requires-python = ">=3.10"
+dependencies = [
+    "pymodbus>=3.6,<4.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "openpyxl>=3.1",
+    "bcrypt>=4.1",
+    "itsdangerous>=2.1",
+    "pyyaml>=6.0",
+    "python-multipart>=0.0.9",
+]
+
+[project.scripts]
+datalogger_v2 = "datalogger_v2.main:run"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"datalogger_v2" = ["static/*.html", "static/*.css", "static/*.js"]

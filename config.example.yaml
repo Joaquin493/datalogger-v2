@@ -1,0 +1,33 @@
+# Configuración de Datalogger V2. Copiar a config.yaml y ajustar.
+
+modbus:
+  host: 192.168.1.10          # IP del Modicon M221
+  port: 502
+  unit_id: 1                  # Slave ID
+  timeout_s: 2.0              # Timeout por request
+  min_cycle_ms: 20            # Piso entre ciclos de polling (evita saturar al PLC)
+  reconnect_backoff_s: [1, 2, 5, 10, 30]
+  # Cómo mapear %Ix.y / %Qx.y a offsets Modbus. Ver addressing.py.
+  #   "sequential"       -> offsets contiguos por orden (módulo, bit)
+  #   "module_stride:32" -> offset = módulo * 32 + bit
+  addressing_scheme: "sequential"
+
+catalog:
+  xlsx_path: "Programa_TTA_IRSA_convertido v3.xlsx"
+  sheet: "Sheet2"
+
+storage:
+  db_path: "data/datalogger_v2.db"
+  max_events: 1000000         # FIFO: al superar, se elimina el más viejo
+
+web:
+  host: 0.0.0.0
+  port: 8080
+  session_secret: "CAMBIAR-EN-PRODUCCION-A-UN-STRING-ALEATORIO-LARGO"
+  session_max_age_s: 28800    # 8 h
+
+# Usuarios iniciales (solo se aplican si la tabla users está vacía).
+# Después cambiar/crear usuarios desde la UI.
+initial_users:
+  - username: admin
+    password: admin

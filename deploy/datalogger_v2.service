@@ -1,0 +1,22 @@
+[Unit]
+Description=Datalogger V2 — registrador de eventos digitales (M221 / Modbus TCP)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=datalogger_v2
+Group=datalogger_v2
+WorkingDirectory=/opt/datalogger_v2
+ExecStart=/opt/datalogger_v2/.venv/bin/datalogger_v2 -c /opt/datalogger_v2/config.yaml
+Restart=always
+RestartSec=3
+# Mantiene el servicio vivo ante reinicios / cortes de energía.
+# Asume que /opt/datalogger_v2 contiene el venv + config.yaml + xlsx.
+Environment=PYTHONUNBUFFERED=1
+Environment=LOG_LEVEL=INFO
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

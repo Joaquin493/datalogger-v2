@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datalogger V2</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    DATALOGGER <span class="logo-ver">V2</span>
+  </div>
+  <div class="header-right">
+    <div id="clock" aria-label="Hora actual"></div>
+    <div id="latency" title="Latencia servidor" aria-live="polite"></div>
+    <div id="plc-status" class="connecting" role="status" aria-live="polite">◌ CONECTANDO...</div>
+    <button type="button" class="btn-icon" id="btn-theme" title="Alternar tema claro/oscuro (T)" aria-label="Alternar tema">☾</button>
+    <a href="/logout"><button type="button" class="btn-logout">⎋ Salir</button></a>
+  </div>
+</header>
+
+<div class="tabs" role="tablist" aria-label="Secciones">
+  <button type="button" class="tab active" role="tab" aria-selected="true"  aria-controls="panel-signals"  id="tab-signals"   data-tab="signals">Panel de Señales <span class="kbd-hint">1</span></button>
+  <button type="button" class="tab"        role="tab" aria-selected="false" aria-controls="panel-events"   id="tab-events"    data-tab="events">Registro de Eventos <span class="kbd-hint">2</span></button>
+  <button type="button" class="tab"        role="tab" aria-selected="false" aria-controls="panel-counts"   id="tab-counts"    data-tab="counts">Contadores <span class="kbd-hint">3</span></button>
+  <button type="button" class="tab"        role="tab" aria-selected="false" aria-controls="panel-sysevents" id="tab-sysevents" data-tab="sysevents">Sistema <span class="kbd-hint">4</span></button>
+</div>
+
+<!-- SEÑALES -->
+<div id="panel-signals" class="panel active" role="tabpanel" aria-labelledby="tab-signals">
+  <div class="toolbar">
+    <div class="search-box">
+      <span class="search-icon" aria-hidden="true">⌕</span>
+      <input type="text" id="sig-search" placeholder="Buscar tag o descripción..." aria-label="Buscar señales">
+    </div>
+    <button type="button" class="filter-btn" id="btn-all" data-filter="all">Todas</button>
+    <button type="button" class="filter-btn active-on" id="btn-on" data-filter="on">ON</button>
+    <button type="button" class="filter-btn" id="btn-off" data-filter="off">OFF</button>
+    <div class="spacer"></div>
+  </div>
+  <div class="grid-stats">
+    Total: <span id="stat-total">—</span> &nbsp;|&nbsp;
+    <span class="stat-on">ON: <span id="stat-on">—</span></span> &nbsp;|&nbsp;
+    <span class="stat-off">OFF: <span id="stat-off">—</span></span> &nbsp;|&nbsp;
+    Mostrando: <span id="stat-visible">—</span>
+  </div>
+  <div class="signal-grid" id="signal-grid" aria-live="polite" aria-busy="false"></div>
+</div>
+
+<!-- EVENTOS -->
+<div id="panel-events" class="panel" role="tabpanel" aria-labelledby="tab-events" hidden>
+
+  <div class="ev-toolbar">
+    <div class="ev-toolbar-row">
+      <div class="search-box" style="flex:1;max-width:340px">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input type="text" id="ev-search" placeholder="Buscar tag, dirección, descripción..." aria-label="Buscar eventos">
+      </div>
+      <select class="select-filter" id="ev-state" aria-label="Filtrar por estado">
+        <option value="">Todos los estados</option>
+        <option value="ON">Solo ON</option>
+        <option value="OFF">Solo OFF</option>
+      </select>
+      <select class="select-filter" id="ev-tag" aria-label="Filtrar por tag">
+        <option value="">Todos los tags</option>
+      </select>
+      <div class="spacer"></div>
+      <label class="inline-label">
+        Filas:
+        <select class="page-size-select" id="page-size" aria-label="Filas por página">
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+          <option value="500">500</option>
+        </select>
+      </label>
+      <label class="inline-label" title="Actualiza cada 2 s. Pausa si estás seleccionando texto o si no estás en orden id desc / página 1.">
+        <input type="checkbox" id="auto-refresh" checked> Auto
+      </label>
+      <span id="live-indicator" class="live-indicator" title="Actualización en vivo activa">● LIVE</span>
+    </div>
+
+    <div class="ev-toolbar-row">
+      <span class="toolbar-label">RANGO</span>
+      <div class="preset-group" role="group" aria-label="Presets de fecha">
+        <button type="button" class="btn preset" data-preset="15m">15 min</button>
+        <button type="button" class="btn preset" data-preset="1h">1 h</button>
+        <button type="button" class="btn preset" data-preset="today">Hoy</button>
+        <button type="button" class="btn preset" data-preset="24h">24 h</button>
+        <button type="button" class="btn preset" data-preset="7d">7 días</button>
+      </div>
+      <span class="toolbar-label">DESDE</span>
+      <input type="datetime-local" class="date-input" id="date-from" aria-label="Fecha desde">
+      <span class="toolbar-label">HASTA</span>
+      <input type="datetime-local" class="date-input" id="date-to" aria-label="Fecha hasta">
+      <div class="spacer"></div>
+      <button type="button" class="btn" id="btn-clear-filters" title="Limpiar todos los filtros (Esc)">✕ Limpiar</button>
+      <div class="export-group">
+        <button type="button" class="btn btn-export" id="btn-export-xlsx" title="Exporta hasta 50k filas — rápido pero limitado">↓ XLSX</button>
+        <button type="button" class="btn btn-export" id="btn-export-csv" title="Streaming — apto para el FIFO completo (1M)">↓ CSV</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-wrap" id="events-wrap">
+    <div class="loading-overlay" id="events-loading" hidden><div class="spinner" aria-label="Cargando"></div></div>
+    <table>
+      <thead>
+        <tr>
+          <th data-sort="id"        scope="col"># <span class="sort-arrow" id="sort-id">↓</span></th>
+          <th data-sort="address"   scope="col">Dirección <span class="sort-arrow" id="sort-address">↕</span></th>
+          <th data-sort="tag"       scope="col">Tag <span class="sort-arrow" id="sort-tag">↕</span></th>
+          <th data-sort="state"     scope="col">Estado <span class="sort-arrow" id="sort-state">↕</span></th>
+          <th                       scope="col">Descripción</th>
+          <th data-sort="timestamp" scope="col">Timestamp <span class="sort-arrow" id="sort-timestamp">↕</span></th>
+        </tr>
+      </thead>
+      <tbody id="events-body"></tbody>
+    </table>
+    <div id="ev-empty" class="empty-state" hidden>Sin resultados</div>
+  </div>
+
+  <div class="pagination">
+    <div class="page-info">
+      Mostrando <span id="pg-from">—</span>–<span id="pg-to">—</span>
+      de <span id="pg-total">—</span> eventos
+    </div>
+    <div class="page-controls" id="page-controls"></div>
+  </div>
+</div>
+
+<!-- CONTADORES -->
+<div id="panel-counts" class="panel" role="tabpanel" aria-labelledby="tab-counts" hidden>
+  <div class="toolbar">
+    <div class="search-box">
+      <span class="search-icon" aria-hidden="true">⌕</span>
+      <input type="text" id="cnt-search" placeholder="Buscar tag o descripción..." aria-label="Buscar contadores">
+    </div>
+    <div class="spacer"></div>
+    <button type="button" class="btn" id="btn-reload-counts">↺ Actualizar</button>
+  </div>
+  <div class="table-wrap" id="counts-wrap">
+    <div class="loading-overlay" id="counts-loading" hidden><div class="spinner" aria-label="Cargando"></div></div>
+    <table>
+      <thead>
+        <tr>
+          <th data-csort="tag"        scope="col">Tag <span class="sort-arrow" id="csort-tag">↕</span></th>
+          <th data-csort="total"      scope="col">Total <span class="sort-arrow" id="csort-total">↓</span></th>
+          <th data-csort="total_on"   scope="col">ON <span class="sort-arrow" id="csort-total_on">↕</span></th>
+          <th data-csort="total_off"  scope="col">OFF <span class="sort-arrow" id="csort-total_off">↕</span></th>
+          <th data-csort="last_event" scope="col">Último evento <span class="sort-arrow" id="csort-last_event">↕</span></th>
+          <th                         scope="col">Descripción</th>
+        </tr>
+      </thead>
+      <tbody id="counts-body"></tbody>
+    </table>
+    <div id="cnt-empty" class="empty-state" hidden>Sin datos aún</div>
+  </div>
+</div>
+
+<!-- SISTEMA -->
+<div id="panel-sysevents" class="panel" role="tabpanel" aria-labelledby="tab-sysevents" hidden>
+  <div class="toolbar">
+    <div class="spacer"></div>
+    <button type="button" class="btn" id="btn-reload-sys">↺ Actualizar</button>
+  </div>
+  <div class="table-wrap" id="sys-wrap">
+    <div class="loading-overlay" id="sys-loading" hidden><div class="spinner" aria-label="Cargando"></div></div>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Tipo</th>
+          <th scope="col">Descripción</th>
+          <th scope="col">Timestamp</th>
+        </tr>
+      </thead>
+      <tbody id="sysev-body"></tbody>
+    </table>
+    <div id="sysev-empty" class="empty-state" hidden>Sin eventos del sistema</div>
+  </div>
+</div>
+
+<div class="kbd-help" aria-hidden="true">
+  <kbd>1</kbd>–<kbd>4</kbd> tabs · <kbd>/</kbd> buscar · <kbd>Esc</kbd> limpiar · <kbd>T</kbd> tema
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
