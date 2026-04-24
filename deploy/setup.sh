@@ -22,12 +22,24 @@ echo "[*] Instalando Datalogger V2 en $APP_DIR"
 
 # 0. Dependencias del SO (Debian/Ubuntu). Si falta algo, lo instalamos.
 # En distros no basadas en apt (Fedora/RHEL/Alpine) adaptar a mano.
+#
+# Los paquetes "build-essential", "python3-dev", "cargo" y "rustc" son por si
+# pip no encuentra wheels precompilados para la arquitectura (ARM64 / ARMv7
+# del IOT2050) y tiene que compilar desde source. Afecta principalmente a:
+#   - bcrypt 5.x (Rust)
+#   - pydantic-core (Rust, dependencia transitiva de fastapi)
+#   - watchfiles (Rust, uvicorn[standard])
+#   - httptools (C, uvicorn[standard])
+# Si los wheels existen, apt los deja instalados pero no se usan (costo: ~200 MB).
 if ! command -v apt-get >/dev/null 2>&1; then
   echo "[!] apt-get no disponible. Este script asume Debian/Ubuntu (IOT2050, Raspberry Pi OS)."
-  echo "    Instalá a mano: python3 (>=3.10), python3-venv, python3-pip, git."
+  echo "    Instalá a mano: python3 (>=3.10), python3-venv, python3-pip, git,"
+  echo "    y idealmente build-essential + python3-dev + cargo/rustc."
 else
   MISSING=()
-  for pkg in python3 python3-venv python3-pip git; do
+  for pkg in python3 python3-venv python3-pip git \
+             build-essential python3-dev libffi-dev libssl-dev \
+             cargo rustc; do
     if ! dpkg -s "$pkg" >/dev/null 2>&1; then
       MISSING+=("$pkg")
     fi
@@ -37,7 +49,7 @@ else
     apt-get update -qq
     apt-get install -y "${MISSING[@]}"
   else
-    echo "[+] Dependencias del SO OK (python3, venv, pip, git)."
+    echo "[+] Dependencias del SO OK (python + toolchain de build)."
   fi
 fi
 
@@ -70,7 +82,13 @@ if [[ ! -d .venv ]]; then
   echo "[+] venv creado."
 fi
 ./.venv/bin/pip install --upgrade pip --quiet
-./.venv/bin/pip install -e . --quiet
+echo "[*] Instalando deps del proyecto (puede tardar en ARM si compila algún wheel)..."
+# Retry: si falla por timeout de red, probamos una vez más antes de abortar.
+if ! ./.venv/bin/pip install -e . --quiet; then
+  echo "[!] pip install falló, reintentando en 5s..."
+  sleep 5
+  ./.venv/bin/pip install -e . --quiet
+fi
 echo "[+] Dependencias instaladas."
 
 # 4. Permisos + carpeta de datos.
