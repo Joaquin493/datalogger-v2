@@ -20,6 +20,36 @@ fi
 
 echo "[*] Instalando Datalogger V2 en $APP_DIR"
 
+# 0. Dependencias del SO (Debian/Ubuntu). Si falta algo, lo instalamos.
+# En distros no basadas en apt (Fedora/RHEL/Alpine) adaptar a mano.
+if ! command -v apt-get >/dev/null 2>&1; then
+  echo "[!] apt-get no disponible. Este script asume Debian/Ubuntu (IOT2050, Raspberry Pi OS)."
+  echo "    Instalá a mano: python3 (>=3.10), python3-venv, python3-pip, git."
+else
+  MISSING=()
+  for pkg in python3 python3-venv python3-pip git; do
+    if ! dpkg -s "$pkg" >/dev/null 2>&1; then
+      MISSING+=("$pkg")
+    fi
+  done
+  if [[ ${#MISSING[@]} -gt 0 ]]; then
+    echo "[*] Instalando paquetes faltantes: ${MISSING[*]}"
+    apt-get update -qq
+    apt-get install -y "${MISSING[@]}"
+  else
+    echo "[+] Dependencias del SO OK (python3, venv, pip, git)."
+  fi
+fi
+
+# Verificación de versión de Python (necesitamos >=3.10 por zoneinfo, `|` typing, etc.).
+PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+PY_OK=$(python3 -c 'import sys; print(1 if sys.version_info >= (3, 10) else 0)')
+if [[ "$PY_OK" != "1" ]]; then
+  echo "[!] Python $PY_VER detectado; se necesita >= 3.10. Abortando."
+  exit 1
+fi
+echo "[+] Python $PY_VER OK."
+
 # 1. Crear usuario de sistema sin shell (el servicio corre como este user).
 if ! id -u "$APP_USER" >/dev/null 2>&1; then
   useradd --system --home "$APP_DIR" --shell /bin/false "$APP_USER"

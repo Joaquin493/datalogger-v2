@@ -1,32 +1,97 @@
-# Configuración de producción — Datalogger V2
-# Apunta al Modicon M221 real. Este archivo es el que usa systemd por default.
-# Para desarrollo local con simulador, usar:   python -m datalogger_v2 -c config.dev.yaml
+# ============================================================================
+# Datalogger V2 — configuración de PRODUCCIÓN
+# ============================================================================
+# Este archivo es el que usa systemd por default.
+# Para desarrollo local con simulador, usar:
+#     python -m datalogger_v2 -c config.dev.yaml
+#
+# CHEATSHEET PARA PUESTA EN MARCHA EN PLANTA
+# ------------------------------------------
+# Si algo no funciona al conectar el PLC real, probá en este orden:
+#
+#   1) ¿ping al PLC? → desde el server:  ping 10.10.145.244
+#   2) ¿puerto Modbus abierto? → nmap -p 502 10.10.145.244  (o telnet)
+#   3) ¿/healthz responde? → curl -s http://localhost:8080/healthz
+#   4) Si conecta pero las señales están cruzadas → probar otro addressing_scheme
+#   5) Si hay ModbusException en los logs → ajustar los bloques (ver poller.py)
+#   6) Si hay timeouts → subir timeout_s y/o min_cycle_ms
+# ============================================================================
 
 modbus:
-  host: 10.10.145.244           # IP del Modicon M221
-  port: 502                     # puerto Modbus TCP estándar
+  # IP del Modicon M221 dentro de la LAN.
+  host: 10.10.145.244
+
+  # Puerto Modbus TCP. 502 es el estándar del M221.
+  # Si la planta lo tiene en otro puerto por firewall: cambialo acá.
+  port: 502
+
+  # Slave ID. M221 usa 1 por defecto. Consultá el SO Machine Expert - Basic
+  # si el PLC fue reconfigurado.
   unit_id: 1
+
+  # Timeout por request Modbus. En LAN industrial con latencia variable:
+  #   - 2.0 s → rápido, para red sana
+  #   - 3.0 s → conservador, tolera jitter
+  #   - 5.0 s → solo si hay switches lentos / VPN de por medio
   timeout_s: 2.0
-  min_cycle_ms: 20              # piso entre ciclos del poller
+
+  # Piso entre ciclos del poller. Cada ciclo lee %I+%Q. Bajar sube el rate de
+  # eventos detectados, pero también la carga sobre el PLC.
+  #   - 20  ms → agresivo, bueno para capturar pulsos cortos
+  #   - 50  ms → balanceado, recomendado para arranque en planta
+  #   - 100 ms → conservador, si el PLC se queja o la red es pobre
+  min_cycle_ms: 20
+
+  # Backoff de reconexión (en segundos). Si cae el enlace, reintenta con estos
+  # delays en orden; se queda con el último valor hasta que recupere.
   reconnect_backoff_s: [1, 2, 5, 10, 30]
+
+  # Cómo se mapean las direcciones Schneider (%Ix.y, %Qx.y) a offsets Modbus.
+  # ESTO ES EL CAMBIO #1 A PROBAR SI LAS SEÑALES SALEN CRUZADAS EN LA UI.
+  #   "sequential"       → offsets contiguos en orden (módulo, bit)        [default M221]
+  #   "module_stride:16" → offset = módulo * 16 + bit                      [si cada módulo usa 16 bits]
+  #   "module_stride:32" → offset = módulo * 32 + bit                      [si cada módulo usa 32 bits]
+  # Cambiá y reiniciá:   sudo systemctl restart datalogger_v2
   addressing_scheme: "sequential"
 
 catalog:
+  # Ruta al xlsx con el mapeo de 104 I/O. Relativa al directorio del yaml.
   xlsx_path: "Programa_TTA_IRSA_convertido v3.xlsx"
   sheet: "Sheet2"
 
 storage:
+  # Archivo SQLite con el historial de eventos. Relativo al directorio del yaml.
   db_path: "data/datalogger_v2.db"
-  max_events: 1000000           # FIFO: al superar, se elimina el más viejo
+
+  # FIFO: cuando se supera, el trigger de SQLite borra los más viejos.
+  #   - 1_000_000 = ~14 días a 1 evento/segundo constante
+  #   - bajalo si la eMMC queda corta (cada evento ≈ 100 bytes)
+  max_events: 1000000
 
 web:
-  host: 0.0.0.0                 # accesible desde cualquier IP de la LAN
-  port: 8080
-  session_secret: "262eb7448f4420e382ff6864288b677c1b1b9c7cd07530da2efc6c1914b45a6f"
-  session_max_age_s: 28800      # 8 h
+  # host: 0.0.0.0 → accesible desde cualquier IP de la LAN
+  #       127.0.0.1 → sólo desde el mismo server (para reverse proxy)
+  host: 0.0.0.0
 
-# Usuarios iniciales — sólo se aplican la primera vez que arranca (tabla users vacía).
-# Tras el primer login, cambiar la contraseña desde la UI.
+  # Puerto del servidor web. Si chocás con otro servicio, cambialo a 8081/8180.
+  port: 8080
+
+  # Secret para firmar la cookie de sesión. NO COMPARTIR este archivo en repos
+  # públicos. Regenerar con:   python3 -c "import secrets; print(secrets.token_hex(32))"
+  session_secret: "262eb7448f4420e382ff6864288b677c1b1b9c7cd07530da2efc6c1914b45a6f"
+
+  # Duración de la sesión tras login, en segundos. 28800 = 8 h (turno).
+  session_max_age_s: 28800
+
+  # TZ de los timestamps en los exports xlsx/csv. La UI siempre usa la hora
+  # local del browser; esto sólo afecta a los archivos bajados.
+  #   "America/Argentina/Buenos_Aires"  → GMT-3 (recomendado en AR)
+  #   "UTC"                             → dejar en UTC
+  #   Cualquier nombre válido de IANA TZ database (ver `timedatectl list-timezones`).
+  export_timezone: "America/Argentina/Buenos_Aires"
+
+# Usuarios iniciales — sólo se crean la primera vez que arranca (tabla users vacía).
+# Tras el primer login, cambiar la password desde la DB o vía SQL en la propia eMMC.
 initial_users:
   - username: admin
     password: admin

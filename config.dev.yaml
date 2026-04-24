@@ -1,9 +1,16 @@
-# Config de desarrollo local. Apunta al simulador Modbus (scripts/modbus_sim.py).
-# Uso:   python -m datalogger_v2 -c config.dev.yaml
+# ============================================================================
+# Datalogger V2 — configuración de DESARROLLO LOCAL
+# ============================================================================
+# Apunta al simulador Modbus que levantás con:
+#     python scripts/modbus_sim.py
+#
+# Uso:
+#     python -m datalogger_v2 -c config.dev.yaml
+# ============================================================================
 
 modbus:
   host: 127.0.0.1
-  port: 5020                  # puerto del simulador local (evita pedir admin del 502)
+  port: 5020                  # puerto del simulador (evita pedir admin del 502)
   unit_id: 1
   timeout_s: 2.0
   min_cycle_ms: 20
@@ -15,14 +22,16 @@ catalog:
   sheet: "Sheet2"
 
 storage:
+  # DB local de dev (separada de la de prod para no pisar historial real).
   db_path: "data/datalogger_v2_dev.db"
   max_events: 1000000
 
 web:
-  host: 127.0.0.1
+  host: 127.0.0.1             # sólo localhost en dev
   port: 8080
   session_secret: "d064fec00b074244f328dd61039a6d1647b93117941ed21c640e4e89cee363bb"
   session_max_age_s: 28800
+  export_timezone: "America/Argentina/Buenos_Aires"
 
 initial_users:
   - username: admin

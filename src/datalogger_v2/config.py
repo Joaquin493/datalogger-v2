@@ -59,6 +59,10 @@ class WebConfig:
     port: int = 8080
     session_secret: str = ""
     session_max_age_s: int = 28_800         # 8 horas
+    # TZ de los timestamps en los exports xlsx/csv. La UI siempre muestra en
+    # hora local del browser; esto es sólo para cuando bajás el archivo y lo
+    # abrís en Excel. Valor vacío o "UTC" = dejar el ISO original.
+    export_timezone: str = "America/Argentina/Buenos_Aires"
 
 
 @dataclass

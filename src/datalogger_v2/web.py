@@ -38,6 +38,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import openpyxl
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, Request
@@ -65,6 +66,32 @@ _LOGIN_WINDOW_S = 60.0       # Ventana de agrupación
 _LOGIN_MAX_SLEEP_S = 5.0     # Tope del castigo por intento fallido
 
 _STATIC_DIR = Path(__file__).parent / "static"
+
+
+def _resolve_export_tz(name: str) -> ZoneInfo:
+    """Devuelve la ZoneInfo indicada; si el nombre es inválido cae a UTC con warning."""
+    if not name or name.upper() == "UTC":
+        return ZoneInfo("UTC")
+    try:
+        return ZoneInfo(name)
+    except ZoneInfoNotFoundError:
+        log.warning("export_timezone=%r desconocida, usando UTC", name)
+        return ZoneInfo("UTC")
+
+
+def _fmt_ts_for_export(iso_utc: str, tz: ZoneInfo) -> str:
+    """Convierte un ISO UTC ('2026-04-24T01:32:10.076+00:00') a hora local legible.
+
+    Devuelve 'YYYY-MM-DD HH:MM:SS.mmm' — formato que Excel interpreta como texto
+    pero ordena/filtra bien. Si tz es UTC, devuelve el mismo formato pero sin
+    convertir el offset (el valor ya está en UTC).
+    """
+    try:
+        dt = datetime.fromisoformat(iso_utc).astimezone(tz)
+    except Exception:
+        return iso_utc
+    ms = dt.microsecond // 1000
+    return dt.strftime("%Y-%m-%d %H:%M:%S.") + f"{ms:03d}"
 
 
 def _login_penalty(ip: str) -> float:
@@ -106,6 +133,9 @@ def _state_from_param(val: Optional[str]) -> Optional[int]:
 def create_app(cfg: Config, db: Database, live: LiveState) -> FastAPI:
     """Construye y devuelve la app FastAPI configurada.
 
+    Resuelve la `export_timezone` una vez al crear la app (no por request):
+    es O(1) amortizado y loguea si el nombre es inválido.
+
     Registra:
       - Middleware de sesión firmada con `cfg.web.session_secret`.
       - Rutas HTML (login/logout/index) que leen archivos de `static/`.
@@ -114,6 +144,8 @@ def create_app(cfg: Config, db: Database, live: LiveState) -> FastAPI:
       - Exports xlsx (cap 50k filas) y CSV streaming (apto para el FIFO completo).
     """
     log.info("Creando app FastAPI — static=%s", _STATIC_DIR)
+    export_tz = _resolve_export_tz(cfg.web.export_timezone)
+    log.info("Export timezone: %s", export_tz.key)
     app = FastAPI(title="Datalogger V2", version="0.1.0", docs_url=None, redoc_url=None)
     app.add_middleware(
         SessionMiddleware,
@@ -308,7 +340,8 @@ def create_app(cfg: Config, db: Database, live: LiveState) -> FastAPI:
         for r in rows:
             ws.append(
                 [
-                    r["id"], r["ts"], r["address"], r["symbol"], r["description"],
+                    r["id"], _fmt_ts_for_export(r["ts"], export_tz),
+                    r["address"], r["symbol"], r["description"],
                     "ON" if r["state"] == 1 else "OFF",
                 ]
             )
@@ -364,7 +397,8 @@ def create_app(cfg: Config, db: Database, live: LiveState) -> FastAPI:
                 batch=2000,
             ):
                 writer.writerow([
-                    r["id"], r["ts"], r["address"], r["symbol"], r["description"],
+                    r["id"], _fmt_ts_for_export(r["ts"], export_tz),
+                    r["address"], r["symbol"], r["description"],
                     "ON" if r["state"] == 1 else "OFF",
                 ])
                 n += 1
